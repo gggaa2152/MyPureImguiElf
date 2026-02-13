@@ -26,6 +26,11 @@ static bool InitEGL(ANativeWindow* window) {
         return false;
     }
 
+    // ===== 关键修复：设置窗口缓冲区格式 =====
+    LOGI("InitEGL: setting window buffers geometry");
+    ANativeWindow_setBuffersGeometry(window, 0, 0, WINDOW_FORMAT_RGBA_8888);
+    // ======================================
+
     LOGI("InitEGL: calling eglGetDisplay");
     g_EglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (g_EglDisplay == EGL_NO_DISPLAY) {
@@ -58,11 +63,16 @@ static bool InitEGL(ANativeWindow* window) {
         return false;
     }
 
-    // 使用窗口表面（而不是 pbuffer）
-    LOGI("InitEGL: creating window surface");
+    // 创建窗口表面
+    LOGI("InitEGL: creating window surface with window=%p", window);
     g_EglSurface = eglCreateWindowSurface(g_EglDisplay, config, window, nullptr);
+    
+    // 获取错误码
+    EGLint error = eglGetError();
+    LOGI("InitEGL: eglCreateWindowSurface returned %p, error=0x%x", g_EglSurface, error);
+
     if (g_EglSurface == EGL_NO_SURFACE) {
-        LOGE("InitEGL: eglCreateWindowSurface failed");
+        LOGE("InitEGL: eglCreateWindowSurface failed with error 0x%x", error);
         return false;
     }
     LOGI("InitEGL: window surface created successfully");
@@ -120,8 +130,8 @@ void android_main(struct android_app* app) {
     
     while (running) {
         frame_count++;
-        if (frame_count % 100 == 0) {
-            LOGI("Main loop iteration %d", frame_count);
+        if (frame_count % 60 == 0) {
+            LOGI("Main loop iteration %d, FPS: %.1f", frame_count, ImGui::GetIO().Framerate);
         }
         
         int events;
@@ -134,16 +144,11 @@ void android_main(struct android_app* app) {
         ImGui_ImplAndroid_NewFrame();
         ImGui::NewFrame();
 
-        {
-            ImGui::Begin("纯净 ELF 菜单", nullptr);
-            ImGui::Text("帧数: %d", frame_count);
-            ImGui::Text("窗口表面版");
-            ImGui::End();
-        }
+        // 显示官方Demo窗口
+        ImGui::ShowDemoWindow();
 
         ImGui::Render();
         
-        // 获取窗口尺寸
         int w = ANativeWindow_getWidth(app->window);
         int h = ANativeWindow_getHeight(app->window);
         glViewport(0, 0, w, h);
