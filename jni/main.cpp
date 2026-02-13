@@ -20,13 +20,13 @@ static bool InitEGL(ANativeWindow* window) {
     LOGI("InitEGL: getting display...");
     g_EglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (g_EglDisplay == EGL_NO_DISPLAY) {
-        LOGE("eglGetDisplay failed");
+        LOGE("eglGetDisplay failed, error=0x%x", eglGetError());
         return false;
     }
 
     LOGI("InitEGL: initializing display...");
     if (!eglInitialize(g_EglDisplay, nullptr, nullptr)) {
-        LOGE("eglInitialize failed");
+        LOGE("eglInitialize failed, error=0x%x", eglGetError());
         return false;
     }
 
@@ -42,32 +42,44 @@ static bool InitEGL(ANativeWindow* window) {
     EGLConfig config;
     EGLint numConfigs;
     if (!eglChooseConfig(g_EglDisplay, configAttribs, &config, 1, &numConfigs) || numConfigs == 0) {
-        LOGE("eglChooseConfig failed");
+        LOGE("eglChooseConfig failed, error=0x%x", eglGetError());
         return false;
     }
 
-    LOGI("InitEGL: creating surface...");
-    g_EglSurface = eglCreateWindowSurface(g_EglDisplay, config, window, nullptr);
-    if (g_EglSurface == EGL_NO_SURFACE) {
-        LOGE("eglCreateWindowSurface failed");
+    // ---------- 方案A：详细日志和错误检查 ----------
+    LOGI("InitEGL: checking window validity...");
+    if (window == nullptr) {
+        LOGE("window is null!");
         return false;
     }
+    LOGI("InitEGL: window=%p is valid", window);
+
+    LOGI("InitEGL: creating surface with window=%p", window);
+    g_EglSurface = eglCreateWindowSurface(g_EglDisplay, config, window, nullptr);
+    LOGI("InitEGL: eglCreateWindowSurface returned %p", g_EglSurface);
+
+    if (g_EglSurface == EGL_NO_SURFACE) {
+        LOGE("eglCreateWindowSurface failed, error=0x%x", eglGetError());
+        return false;
+    }
+    LOGI("InitEGL: surface created successfully");
 
     LOGI("InitEGL: creating context...");
     const EGLint contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE };
     g_EglContext = eglCreateContext(g_EglDisplay, config, EGL_NO_CONTEXT, contextAttribs);
     if (g_EglContext == EGL_NO_CONTEXT) {
-        LOGE("eglCreateContext failed");
+        LOGE("eglCreateContext failed, error=0x%x", eglGetError());
         return false;
     }
+    LOGI("InitEGL: context created successfully");
 
     LOGI("InitEGL: making current...");
     if (!eglMakeCurrent(g_EglDisplay, g_EglSurface, g_EglSurface, g_EglContext)) {
-        LOGE("eglMakeCurrent failed");
+        LOGE("eglMakeCurrent failed, error=0x%x", eglGetError());
         return false;
     }
-
     LOGI("InitEGL: success!");
+
     return true;
 }
 
