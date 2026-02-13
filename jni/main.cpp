@@ -1,6 +1,6 @@
+#include <EGL/egl.h>
 #include <android_native_app_glue.h>
 #include <android/log.h>
-#include <EGL/egl.h>
 #include <GLES3/gl3.h>
 
 #include "imgui.h"
@@ -40,7 +40,8 @@ static bool InitEGL(ANativeWindow* window) {
 }
 
 void android_main(struct android_app* app) {
-    app_dummy();
+    // NDK r23c 已不需要 app_dummy，注释掉避免警告
+    // app_dummy();
 
     while (app->window == nullptr) {
         int events;
