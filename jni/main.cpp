@@ -1,4 +1,5 @@
 #include <EGL/egl.h>
+#include <EGL/eglext.h>
 #include <android_native_app_glue.h>
 #include <android/log.h>
 #include <GLES3/gl3.h>
