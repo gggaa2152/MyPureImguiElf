@@ -8,8 +8,10 @@ LOCAL_CFLAGS   := -std=c11 -Wall
 LOCAL_CPPFLAGS := -std=c++17 -Wall -fexceptions -frtti
 LOCAL_CPPFLAGS += -DIMGUI_IMPL_OPENGL_ES3
 
+# ===== 头文件路径 =====
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/imgui
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/backends
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/include          # ← 新加的这一行！
 LOCAL_C_INCLUDES += $(NDK_ROOT)/sources/android/native_app_glue
 
 LOCAL_SRC_FILES := main.cpp
@@ -24,7 +26,7 @@ LOCAL_SRC_FILES += $(NDK_ROOT)/sources/android/native_app_glue/android_native_ap
 
 LOCAL_LDLIBS := -landroid -lEGL -lGLESv3 -llog
 
-# ⚠️ 强制指定入口点为 android_main
-LOCAL_LDFLAGS += -Wl,-e,android_main
+# 告诉链接器用 android_main 而不是 main
+LOCAL_LDFLAGS += -u ANativeActivity_onCreate
 
 include $(BUILD_EXECUTABLE)
