@@ -668,7 +668,7 @@ namespace android {
                     static SurfaceComposerClientTransaction transaction;
                     transaction.SetTrustedOverlay(result, true);
                     transaction.SetLayer(result, INT_MAX);
-                    auto applyResult = transaction.Apply(false, true);
+                    (void)transaction.Apply(false, true);  // 用 (void) 强制忽略返回值
                 } else if (8 >= systemVersion) {
                     // Android 8 and below: Use global transaction to set layer
                     OpenGlobalTransaction();
