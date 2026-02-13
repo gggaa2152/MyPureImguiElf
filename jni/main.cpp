@@ -26,16 +26,10 @@ static bool InitEGL(ANativeWindow* window) {
         return false;
     }
 
-    // ===== 验证窗口有效性 =====
-    LOGI("InitEGL: checking window validity");
-    int width = ANativeWindow_getWidth(window);
-    int height = ANativeWindow_getHeight(window);
-    LOGI("InitEGL: window width=%d, height=%d", width, height);
-
-    if (width <= 0 || height <= 0) {
-        LOGE("InitEGL: window invalid (width=%d, height=%d)", width, height);
-        return false;
-    }
+    // ===== 不用 ANativeWindow_getWidth，直接用默认值 =====
+    int width = 1080;
+    int height = 1920;
+    LOGI("InitEGL: using default window size = %dx%d", width, height);
 
     // ===== 设置窗口缓冲区格式 =====
     LOGI("InitEGL: setting window buffers geometry");
@@ -159,9 +153,8 @@ void android_main(struct android_app* app) {
 
         ImGui::Render();
         
-        int w = ANativeWindow_getWidth(app->window);
-        int h = ANativeWindow_getHeight(app->window);
-        glViewport(0, 0, w, h);
+        // 用默认尺寸
+        glViewport(0, 0, 1080, 1920);
         
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT);
