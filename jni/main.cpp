@@ -1,6 +1,7 @@
 #include <EGL/egl.h>
 #include <GLES3/gl3.h>
 #include <android/log.h>
+#include <android_native_app_glue.h>  // 必须包含！提供 ALooper_pollAll 和 android_poll_source
 #include <unistd.h>
 
 // 把这个头文件放到你的 jni/include/ 目录下
