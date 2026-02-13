@@ -28,7 +28,7 @@ static bool InitEGL(ANativeWindow* window) {
         return false;
     }
 
-    // 直接使用默认尺寸
+    // 使用默认尺寸
     int w = 1080;
     int h = 1920;
     LOGI("InitEGL: using default window size = %dx%d", w, h);
@@ -53,12 +53,14 @@ static bool InitEGL(ANativeWindow* window) {
 
     // 配置属性
     const EGLint configAttribs[] = {
-        EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+        EGL_SURFACE_TYPE, EGL_WINDOW_BIT | EGL_PBUFFER_BIT,
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
         EGL_BLUE_SIZE, 8,
         EGL_GREEN_SIZE, 8,
         EGL_RED_SIZE, 8,
         EGL_ALPHA_SIZE, 8,
+        EGL_DEPTH_SIZE, 24,
+        EGL_STENCIL_SIZE, 8,
         EGL_NONE
     };
 
@@ -71,17 +73,23 @@ static bool InitEGL(ANativeWindow* window) {
     }
     LOGI("InitEGL: eglChooseConfig succeeded");
 
-    // 创建表面（带详细错误信息）
-    LOGI("InitEGL: calling eglCreateWindowSurface with window=%p", window);
-    g_EglSurface = eglCreateWindowSurface(g_EglDisplay, config, window, nullptr);
+    // 使用 pbuffer 表面替代窗口表面（避免崩溃）
+    LOGI("InitEGL: using pbuffer surface instead of window surface");
+    const EGLint pbufferAttribs[] = {
+        EGL_WIDTH, w,
+        EGL_HEIGHT, h,
+        EGL_NONE
+    };
+
+    g_EglSurface = eglCreatePbufferSurface(g_EglDisplay, config, pbufferAttribs);
     EGLint surfaceError = eglGetError();
-    LOGI("InitEGL: eglCreateWindowSurface returned %p, error=0x%x", g_EglSurface, surfaceError);
+    LOGI("InitEGL: eglCreatePbufferSurface returned %p, error=0x%x", g_EglSurface, surfaceError);
 
     if (g_EglSurface == EGL_NO_SURFACE) {
-        LOGE("InitEGL: eglCreateWindowSurface failed with error 0x%x", surfaceError);
+        LOGE("InitEGL: eglCreatePbufferSurface failed with error 0x%x", surfaceError);
         return false;
     }
-    LOGI("InitEGL: surface created successfully");
+    LOGI("InitEGL: pbuffer surface created successfully");
 
     // 创建上下文
     const EGLint contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
