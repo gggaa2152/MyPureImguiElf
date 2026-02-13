@@ -26,10 +26,21 @@ static bool InitEGL(ANativeWindow* window) {
         return false;
     }
 
-    // ===== 关键修复：设置窗口缓冲区格式 =====
+    // ===== 验证窗口有效性 =====
+    LOGI("InitEGL: checking window validity");
+    int width = ANativeWindow_getWidth(window);
+    int height = ANativeWindow_getHeight(window);
+    LOGI("InitEGL: window width=%d, height=%d", width, height);
+
+    if (width <= 0 || height <= 0) {
+        LOGE("InitEGL: window invalid (width=%d, height=%d)", width, height);
+        return false;
+    }
+
+    // ===== 设置窗口缓冲区格式 =====
     LOGI("InitEGL: setting window buffers geometry");
-    ANativeWindow_setBuffersGeometry(window, 0, 0, WINDOW_FORMAT_RGBA_8888);
-    // ======================================
+    int result = ANativeWindow_setBuffersGeometry(window, width, height, WINDOW_FORMAT_RGBA_8888);
+    LOGI("InitEGL: setBuffersGeometry returned %d", result);
 
     LOGI("InitEGL: calling eglGetDisplay");
     g_EglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
@@ -67,7 +78,6 @@ static bool InitEGL(ANativeWindow* window) {
     LOGI("InitEGL: creating window surface with window=%p", window);
     g_EglSurface = eglCreateWindowSurface(g_EglDisplay, config, window, nullptr);
     
-    // 获取错误码
     EGLint error = eglGetError();
     LOGI("InitEGL: eglCreateWindowSurface returned %p, error=0x%x", g_EglSurface, error);
 
