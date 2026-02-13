@@ -1,3 +1,4 @@
+#include <unistd.h>  // 添加这一行，提供 usleep
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <android_native_app_glue.h>
