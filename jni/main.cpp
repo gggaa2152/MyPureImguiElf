@@ -40,7 +40,7 @@ static bool InitEGL(ANativeWindow* window) {
     }
 
     const EGLint configAttribs[] = {
-        EGL_SURFACE_TYPE, EGL_WINDOW_BIT | EGL_PBUFFER_BIT,
+        EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
         EGL_BLUE_SIZE, 8,
         EGL_GREEN_SIZE, 8,
@@ -58,17 +58,14 @@ static bool InitEGL(ANativeWindow* window) {
         return false;
     }
 
-    const EGLint pbufferAttribs[] = {
-        EGL_WIDTH, 1080,
-        EGL_HEIGHT, 1920,
-        EGL_NONE
-    };
-
-    g_EglSurface = eglCreatePbufferSurface(g_EglDisplay, config, pbufferAttribs);
+    // 使用窗口表面（而不是 pbuffer）
+    LOGI("InitEGL: creating window surface");
+    g_EglSurface = eglCreateWindowSurface(g_EglDisplay, config, window, nullptr);
     if (g_EglSurface == EGL_NO_SURFACE) {
-        LOGE("InitEGL: eglCreatePbufferSurface failed");
+        LOGE("InitEGL: eglCreateWindowSurface failed");
         return false;
     }
+    LOGI("InitEGL: window surface created successfully");
 
     const EGLint contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
     g_EglContext = eglCreateContext(g_EglDisplay, config, EGL_NO_CONTEXT, contextAttribs);
@@ -127,27 +124,31 @@ void android_main(struct android_app* app) {
             LOGI("Main loop iteration %d", frame_count);
         }
         
-        // 处理事件
         int events;
         struct android_poll_source* source;
         while (ALooper_pollAll(0, nullptr, &events, (void**)&source) >= 0) {
             if (source) source->process(app, source);
         }
 
-        // 开始新帧
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplAndroid_NewFrame();
         ImGui::NewFrame();
 
-        // 简化菜单
         {
             ImGui::Begin("纯净 ELF 菜单", nullptr);
             ImGui::Text("帧数: %d", frame_count);
+            ImGui::Text("窗口表面版");
             ImGui::End();
         }
 
-        // 渲染
         ImGui::Render();
+        
+        // 获取窗口尺寸
+        int w = ANativeWindow_getWidth(app->window);
+        int h = ANativeWindow_getHeight(app->window);
+        glViewport(0, 0, w, h);
+        
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
