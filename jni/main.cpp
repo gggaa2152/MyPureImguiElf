@@ -28,21 +28,10 @@ static bool InitEGL(ANativeWindow* window) {
         return false;
     }
 
-    // 验证窗口有效性
-    __android_log_print(ANDROID_LOG_INFO, "PureElf", "InitEGL: testing window validity");
-    
-    // 尝试获取窗口宽度
-    int w = ANativeWindow_getWidth(window);
-    int h = ANativeWindow_getHeight(window);
-
-    if (w <= 0 || h <= 0) {
-        LOGW("InitEGL: window size invalid (%dx%d), trying fallback", w, h);
-        // 使用默认值
-        w = 1080;
-        h = 1920;
-    }
-
-    __android_log_print(ANDROID_LOG_INFO, "PureElf", "InitEGL: window size = %dx%d", w, h);
+    // 直接使用默认尺寸，绕过ANativeWindow_getWidth/Height
+    int w = 1080;
+    int h = 1920;
+    __android_log_print(ANDROID_LOG_INFO, "PureElf", "InitEGL: using default window size = %dx%d", w, h);
 
     // 获取显示
     __android_log_print(ANDROID_LOG_INFO, "PureElf", "InitEGL: calling eglGetDisplay");
