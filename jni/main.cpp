@@ -21,18 +21,22 @@ static ANativeWindow* g_NativeWindow = nullptr;
 
 static bool InitEGL() {
     LOGI("InitEGL: starting...");
-
+    LOGI("InitEGL: getting display");
     g_EglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (g_EglDisplay == EGL_NO_DISPLAY) {
         LOGE("eglGetDisplay failed");
         return false;
     }
+    LOGI("InitEGL: got display %p", g_EglDisplay);
 
+    LOGI("InitEGL: initializing");
     if (!eglInitialize(g_EglDisplay, nullptr, nullptr)) {
         LOGE("eglInitialize failed");
         return false;
     }
+    LOGI("InitEGL: initialized");
 
+    LOGI("InitEGL: choosing config");
     const EGLint attribs[] = {
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
         EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
@@ -50,45 +54,48 @@ static bool InitEGL() {
         LOGE("eglChooseConfig failed");
         return false;
     }
+    LOGI("InitEGL: config chosen");
 
-    LOGI("Creating EGL window surface with native window: %p", g_NativeWindow);
+    LOGI("InitEGL: creating window surface with native window %p", g_NativeWindow);
     g_EglSurface = eglCreateWindowSurface(g_EglDisplay, config, g_NativeWindow, nullptr);
     if (g_EglSurface == EGL_NO_SURFACE) {
         LOGE("eglCreateWindowSurface failed");
         return false;
     }
+    LOGI("InitEGL: surface created %p", g_EglSurface);
 
+    LOGI("InitEGL: creating context");
     const EGLint contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
     g_EglContext = eglCreateContext(g_EglDisplay, config, EGL_NO_CONTEXT, contextAttribs);
     if (g_EglContext == EGL_NO_CONTEXT) {
         LOGE("eglCreateContext failed");
         return false;
     }
+    LOGI("InitEGL: context created %p", g_EglContext);
 
+    LOGI("InitEGL: making current");
     if (!eglMakeCurrent(g_EglDisplay, g_EglSurface, g_EglSurface, g_EglContext)) {
         LOGE("eglMakeCurrent failed");
         return false;
     }
-
     LOGI("InitEGL: success!");
     return true;
 }
 
-// 处理输入事件的函数
 static int32_t handle_input_event(struct android_app* app, AInputEvent* event) {
     if (ImGui_ImplAndroid_HandleInputEvent(event)) {
-        // ImGui 处理了这个事件（比如点击了菜单）
-        return 1; // 返回1表示事件已处理
+        return 1;
     }
-    return 0; // 返回0表示事件未处理，交给系统
+    return 0;
 }
 
 void android_main(struct android_app* app) {
     LOGI("android_main started");
 
-    // 设置输入事件回调
+    LOGI("Setting input event callback");
     app->onInputEvent = handle_input_event;
 
+    LOGI("Creating native window");
     g_NativeWindow = android::ANativeWindowCreator::Create(
         "ImGuiWindow",
         1080,
@@ -102,11 +109,13 @@ void android_main(struct android_app* app) {
     }
     LOGI("Native window created: %p", g_NativeWindow);
 
+    LOGI("Initializing EGL");
     if (!InitEGL()) {
         LOGE("EGL initialization failed");
         android::ANativeWindowCreator::Destroy(g_NativeWindow);
         return;
     }
+    LOGI("EGL initialized");
 
     LOGI("Initializing ImGui...");
     IMGUI_CHECKVERSION();
@@ -114,12 +123,18 @@ void android_main(struct android_app* app) {
     ImGuiIO& io = ImGui::GetIO();
     io.IniFilename = nullptr;
     io.LogFilename = nullptr;
+    LOGI("ImGui context created");
 
+    LOGI("Adding default font");
     io.Fonts->AddFontDefault();
+    LOGI("Font added");
 
     LOGI("Initializing ImGui backends...");
+    LOGI("  - Android backend");
     ImGui_ImplAndroid_Init(g_NativeWindow);
+    LOGI("  - OpenGL3 backend");
     ImGui_ImplOpenGL3_Init("#version 300 es");
+    LOGI("Backends initialized");
 
     LOGI("Entering main loop...");
     bool running = true;
@@ -131,7 +146,6 @@ void android_main(struct android_app* app) {
             LOGI("Main loop iteration %d, FPS: %.1f", frame_count, ImGui::GetIO().Framerate);
         }
 
-        // 处理所有待处理的事件
         int events;
         struct android_poll_source* source;
         while (ALooper_pollAll(0, nullptr, &events, (void**)&source) >= 0) {
@@ -140,15 +154,12 @@ void android_main(struct android_app* app) {
             }
         }
 
-        // 开始ImGui新帧
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplAndroid_NewFrame();
         ImGui::NewFrame();
 
-        // 显示官方Demo窗口
         ImGui::ShowDemoWindow();
 
-        // 渲染
         ImGui::Render();
         glViewport(0, 0, 1080, 1920);
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
