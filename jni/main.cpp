@@ -2,7 +2,6 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <android/native_window.h>
-#include <android/hardware_buffer.h>
 #include <android_native_app_glue.h>
 #include <android/log.h>
 #include <GLES3/gl3.h>
@@ -28,9 +27,10 @@ static bool InitEGL(ANativeWindow* window) {
         return false;
     }
 
-    // 设置窗口格式（关键修复！）
-    __android_log_print(ANDROID_LOG_INFO, "PureElf", "InitEGL: setting window format");
-    ANativeWindow_setBuffersGeometry(window, 0, 0, AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM);
+    // 设置窗口格式 - 使用标准格式
+    __android_log_print(ANDROID_LOG_INFO, "PureElf", "InitEGL: setting window format with WINDOW_FORMAT_RGBA_8888");
+    int formatResult = ANativeWindow_setBuffersGeometry(window, 0, 0, WINDOW_FORMAT_RGBA_8888);
+    __android_log_print(ANDROID_LOG_INFO, "PureElf", "InitEGL: setBuffersGeometry returned %d", formatResult);
 
     // 获取窗口尺寸
     int w = ANativeWindow_getWidth(window);
