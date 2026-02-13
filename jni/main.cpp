@@ -1,4 +1,4 @@
-#include <unistd.h>  // 添加这一行，提供 usleep
+#include <unistd.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <android_native_app_glue.h>
@@ -18,76 +18,83 @@ static EGLSurface  g_EglSurface     = EGL_NO_SURFACE;
 static EGLContext  g_EglContext     = EGL_NO_CONTEXT;
 
 static bool InitEGL(ANativeWindow* window) {
-    LOGI("InitEGL: getting display...");
+    // 立即输出日志
+    LOGI("InitEGL: entered function");
+    LOGI("InitEGL: window=%p", window);
+
+    // 检查窗口
+    if (window == nullptr) {
+        LOGE("InitEGL: window is null");
+        return false;
+    }
+
+    // 获取窗口尺寸测试有效性
+    int32_t w = ANativeWindow_getWidth(window);
+    int32_t h = ANativeWindow_getHeight(window);
+    LOGI("InitEGL: window size=%dx%d", w, h);
+
+    // 尝试获取显示
+    LOGI("InitEGL: calling eglGetDisplay");
     g_EglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    LOGI("InitEGL: eglGetDisplay returned %p", g_EglDisplay);
+
     if (g_EglDisplay == EGL_NO_DISPLAY) {
-        LOGE("eglGetDisplay failed, error=0x%x", eglGetError());
+        LOGE("InitEGL: eglGetDisplay failed");
         return false;
     }
 
-    LOGI("InitEGL: initializing display...");
+    // 初始化显示
+    LOGI("InitEGL: calling eglInitialize");
     if (!eglInitialize(g_EglDisplay, nullptr, nullptr)) {
-        LOGE("eglInitialize failed, error=0x%x", eglGetError());
+        LOGE("InitEGL: eglInitialize failed");
         return false;
     }
+    LOGI("InitEGL: eglInitialize succeeded");
 
-    LOGI("InitEGL: choosing config...");
+    // 配置属性（使用兼容性更好的2.0）
     const EGLint configAttribs[] = {
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR,
         EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-        EGL_BLUE_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_RED_SIZE, 8, EGL_ALPHA_SIZE, 8,
-        EGL_DEPTH_SIZE, 24,
-        EGL_STENCIL_SIZE, 8,
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+        EGL_BLUE_SIZE, 8,
+        EGL_GREEN_SIZE, 8,
+        EGL_RED_SIZE, 8,
         EGL_NONE
     };
+
     EGLConfig config;
     EGLint numConfigs;
+    LOGI("InitEGL: calling eglChooseConfig");
     if (!eglChooseConfig(g_EglDisplay, configAttribs, &config, 1, &numConfigs) || numConfigs == 0) {
-        LOGE("eglChooseConfig failed, error=0x%x", eglGetError());
+        LOGE("InitEGL: eglChooseConfig failed");
         return false;
     }
+    LOGI("InitEGL: eglChooseConfig succeeded");
 
-    // ---------- 修复：确保窗口仍然有效 ----------
-    LOGI("InitEGL: checking window validity...");
-    if (window == nullptr) {
-        LOGE("window is null!");
-        return false;
-    }
-
-    // 尝试获取窗口宽度来验证有效性
-    int32_t width = ANativeWindow_getWidth(window);
-    if (width <= 0) {
-        LOGE("window invalid (width=%d)", width);
-        return false;
-    }
-    LOGI("InitEGL: window valid, width=%d", width);
-
-    // 等待窗口稳定
-    LOGI("InitEGL: waiting 50ms for window to stabilize...");
-    usleep(50000);
-
-    LOGI("InitEGL: creating surface with window=%p", window);
+    // 创建表面
+    LOGI("InitEGL: calling eglCreateWindowSurface");
     g_EglSurface = eglCreateWindowSurface(g_EglDisplay, config, window, nullptr);
     LOGI("InitEGL: eglCreateWindowSurface returned %p", g_EglSurface);
 
     if (g_EglSurface == EGL_NO_SURFACE) {
-        LOGE("eglCreateWindowSurface failed, error=0x%x", eglGetError());
+        LOGE("InitEGL: eglCreateWindowSurface failed");
         return false;
     }
-    LOGI("InitEGL: surface created successfully");
 
-    LOGI("InitEGL: creating context...");
-    const EGLint contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE };
+    // 创建上下文（使用2.0）
+    const EGLint contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
+    LOGI("InitEGL: calling eglCreateContext");
     g_EglContext = eglCreateContext(g_EglDisplay, config, EGL_NO_CONTEXT, contextAttribs);
+    LOGI("InitEGL: eglCreateContext returned %p", g_EglContext);
+
     if (g_EglContext == EGL_NO_CONTEXT) {
-        LOGE("eglCreateContext failed, error=0x%x", eglGetError());
+        LOGE("InitEGL: eglCreateContext failed");
         return false;
     }
-    LOGI("InitEGL: context created successfully");
 
-    LOGI("InitEGL: making current...");
+    // 激活上下文
+    LOGI("InitEGL: calling eglMakeCurrent");
     if (!eglMakeCurrent(g_EglDisplay, g_EglSurface, g_EglSurface, g_EglContext)) {
-        LOGE("eglMakeCurrent failed, error=0x%x", eglGetError());
+        LOGE("InitEGL: eglMakeCurrent failed");
         return false;
     }
     LOGI("InitEGL: success!");
@@ -98,10 +105,7 @@ static bool InitEGL(ANativeWindow* window) {
 void android_main(struct android_app* app) {
     LOGI("android_main started");
 
-    // 处理应用命令的回调
-    // 可以添加一个简单的命令处理函数来处理窗口事件
-    // 但为了简化，我们直接等待窗口可用
-
+    // 等待窗口
     LOGI("Waiting for window...");
     while (app->window == nullptr) {
         int events;
@@ -116,6 +120,7 @@ void android_main(struct android_app* app) {
     int32_t winHeight = ANativeWindow_getHeight(app->window);
     LOGI("Window size: %dx%d", winWidth, winHeight);
 
+    // 初始化EGL
     if (!InitEGL(app->window)) {
         LOGE("EGL Init Failed!");
         return;
