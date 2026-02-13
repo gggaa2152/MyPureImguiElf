@@ -2,6 +2,7 @@
 #include <GLES3/gl3.h>
 #include <android/log.h>
 #include <android_native_app_glue.h>
+#include <android/input.h>
 #include <unistd.h>
 
 #include "ANativeWindowCreator.h"
@@ -73,8 +74,20 @@ static bool InitEGL() {
     return true;
 }
 
+// 处理输入事件的函数
+static int32_t handle_input_event(struct android_app* app, AInputEvent* event) {
+    if (ImGui_ImplAndroid_HandleInputEvent(event)) {
+        // ImGui 处理了这个事件（比如点击了菜单）
+        return 1; // 返回1表示事件已处理
+    }
+    return 0; // 返回0表示事件未处理，交给系统
+}
+
 void android_main(struct android_app* app) {
     LOGI("android_main started");
+
+    // 设置输入事件回调
+    app->onInputEvent = handle_input_event;
 
     g_NativeWindow = android::ANativeWindowCreator::Create(
         "ImGuiWindow",
@@ -103,7 +116,6 @@ void android_main(struct android_app* app) {
     io.LogFilename = nullptr;
 
     io.Fonts->AddFontDefault();
-    // io.Fonts->Build();  // 注释掉这行，让后端自动处理
 
     LOGI("Initializing ImGui backends...");
     ImGui_ImplAndroid_Init(g_NativeWindow);
@@ -119,18 +131,24 @@ void android_main(struct android_app* app) {
             LOGI("Main loop iteration %d, FPS: %.1f", frame_count, ImGui::GetIO().Framerate);
         }
 
+        // 处理所有待处理的事件
         int events;
         struct android_poll_source* source;
         while (ALooper_pollAll(0, nullptr, &events, (void**)&source) >= 0) {
-            if (source) source->process(app, source);
+            if (source) {
+                source->process(app, source);
+            }
         }
 
+        // 开始ImGui新帧
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplAndroid_NewFrame();
         ImGui::NewFrame();
 
+        // 显示官方Demo窗口
         ImGui::ShowDemoWindow();
 
+        // 渲染
         ImGui::Render();
         glViewport(0, 0, 1080, 1920);
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
