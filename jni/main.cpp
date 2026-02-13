@@ -10,15 +10,27 @@
 
 #define LOG_TAG "PureElf"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 static EGLDisplay  g_EglDisplay     = EGL_NO_DISPLAY;
 static EGLSurface  g_EglSurface     = EGL_NO_SURFACE;
 static EGLContext  g_EglContext     = EGL_NO_CONTEXT;
 
 static bool InitEGL(ANativeWindow* window) {
+    LOGI("InitEGL: getting display...");
     g_EglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    eglInitialize(g_EglDisplay, nullptr, nullptr);
+    if (g_EglDisplay == EGL_NO_DISPLAY) {
+        LOGE("eglGetDisplay failed");
+        return false;
+    }
 
+    LOGI("InitEGL: initializing display...");
+    if (!eglInitialize(g_EglDisplay, nullptr, nullptr)) {
+        LOGE("eglInitialize failed");
+        return false;
+    }
+
+    LOGI("InitEGL: choosing config...");
     const EGLint configAttribs[] = {
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR,
         EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
@@ -29,33 +41,54 @@ static bool InitEGL(ANativeWindow* window) {
     };
     EGLConfig config;
     EGLint numConfigs;
-    eglChooseConfig(g_EglDisplay, configAttribs, &config, 1, &numConfigs);
+    if (!eglChooseConfig(g_EglDisplay, configAttribs, &config, 1, &numConfigs) || numConfigs == 0) {
+        LOGE("eglChooseConfig failed");
+        return false;
+    }
 
+    LOGI("InitEGL: creating surface...");
     g_EglSurface = eglCreateWindowSurface(g_EglDisplay, config, window, nullptr);
+    if (g_EglSurface == EGL_NO_SURFACE) {
+        LOGE("eglCreateWindowSurface failed");
+        return false;
+    }
 
+    LOGI("InitEGL: creating context...");
     const EGLint contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE };
     g_EglContext = eglCreateContext(g_EglDisplay, config, EGL_NO_CONTEXT, contextAttribs);
+    if (g_EglContext == EGL_NO_CONTEXT) {
+        LOGE("eglCreateContext failed");
+        return false;
+    }
 
-    eglMakeCurrent(g_EglDisplay, g_EglSurface, g_EglSurface, g_EglContext);
+    LOGI("InitEGL: making current...");
+    if (!eglMakeCurrent(g_EglDisplay, g_EglSurface, g_EglSurface, g_EglContext)) {
+        LOGE("eglMakeCurrent failed");
+        return false;
+    }
+
+    LOGI("InitEGL: success!");
     return true;
 }
 
 void android_main(struct android_app* app) {
-    // NDK r23c 已不需要 app_dummy，注释掉避免警告
-    // app_dummy();
+    LOGI("android_main started");
 
     while (app->window == nullptr) {
+        LOGI("Waiting for window...");
         int events;
         struct android_poll_source* source;
         ALooper_pollAll(-1, nullptr, &events, (void**)&source);
         if (source) source->process(app, source);
     }
+    LOGI("Window obtained");
 
     if (!InitEGL(app->window)) {
-        LOGI("EGL Init Failed!");
+        LOGE("EGL Init Failed!");
         return;
     }
 
+    LOGI("Initializing ImGui...");
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -65,9 +98,11 @@ void android_main(struct android_app* app) {
     io.Fonts->AddFontDefault();
     io.Fonts->Build();
 
+    LOGI("Initializing ImGui backends...");
     ImGui_ImplAndroid_Init(app->window);
     ImGui_ImplOpenGL3_Init("#version 300 es");
 
+    LOGI("Entering main loop...");
     bool running = true;
     while (running) {
         int events;
@@ -119,6 +154,7 @@ void android_main(struct android_app* app) {
         eglSwapBuffers(g_EglDisplay, g_EglSurface);
     }
 
+    LOGI("Shutting down...");
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplAndroid_Shutdown();
     ImGui::DestroyContext();
@@ -126,4 +162,5 @@ void android_main(struct android_app* app) {
     eglDestroyContext(g_EglDisplay, g_EglContext);
     eglDestroySurface(g_EglDisplay, g_EglSurface);
     eglTerminate(g_EglDisplay);
+    LOGI("Done");
 }
