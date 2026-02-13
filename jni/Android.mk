@@ -20,13 +20,8 @@ LOCAL_SRC_FILES += imgui/imgui_widgets.cpp
 LOCAL_SRC_FILES += imgui/imgui_demo.cpp
 LOCAL_SRC_FILES += backends/imgui_impl_android.cpp
 LOCAL_SRC_FILES += backends/imgui_impl_opengl3.cpp
-
-# ⚠️ 直接把 native_app_glue.c 当作源文件编译
 LOCAL_SRC_FILES += $(NDK_ROOT)/sources/android/native_app_glue/android_native_app_glue.c
 
 LOCAL_LDLIBS := -landroid -lEGL -lGLESv3 -llog
-
-# ❌ 不再需要 LOCAL_STATIC_LIBRARIES
-# ✅ 也不需要 $(call import-module, ...)
 
 include $(BUILD_EXECUTABLE)
