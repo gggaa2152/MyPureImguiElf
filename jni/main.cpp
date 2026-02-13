@@ -1,21 +1,3 @@
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <android_native_app_glue.h>
-#include <android/log.h>
-#include <GLES3/gl3.h>
-
-#include "imgui.h"
-#include "backends/imgui_impl_android.h"
-#include "backends/imgui_impl_opengl3.h"
-
-#define LOG_TAG "PureElf"
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
-
-static EGLDisplay  g_EglDisplay     = EGL_NO_DISPLAY;
-static EGLSurface  g_EglSurface     = EGL_NO_SURFACE;
-static EGLContext  g_EglContext     = EGL_NO_CONTEXT;
-
 static bool InitEGL(ANativeWindow* window) {
     LOGI("InitEGL: getting display...");
     g_EglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
@@ -46,13 +28,24 @@ static bool InitEGL(ANativeWindow* window) {
         return false;
     }
 
-    // ---------- 方案A：详细日志和错误检查 ----------
+    // ---------- 修复：确保窗口仍然有效 ----------
     LOGI("InitEGL: checking window validity...");
     if (window == nullptr) {
         LOGE("window is null!");
         return false;
     }
-    LOGI("InitEGL: window=%p is valid", window);
+
+    // 尝试获取窗口宽度来验证有效性
+    int32_t width = ANativeWindow_getWidth(window);
+    if (width <= 0) {
+        LOGE("window invalid (width=%d)", width);
+        return false;
+    }
+    LOGI("InitEGL: window valid, width=%d", width);
+
+    // 可选：短暂等待让窗口稳定
+    LOGI("InitEGL: waiting 50ms for window to stabilize...");
+    usleep(50000);
 
     LOGI("InitEGL: creating surface with window=%p", window);
     g_EglSurface = eglCreateWindowSurface(g_EglDisplay, config, window, nullptr);
@@ -81,98 +74,4 @@ static bool InitEGL(ANativeWindow* window) {
     LOGI("InitEGL: success!");
 
     return true;
-}
-
-void android_main(struct android_app* app) {
-    LOGI("android_main started");
-
-    while (app->window == nullptr) {
-        LOGI("Waiting for window...");
-        int events;
-        struct android_poll_source* source;
-        ALooper_pollAll(-1, nullptr, &events, (void**)&source);
-        if (source) source->process(app, source);
-    }
-    LOGI("Window obtained");
-
-    if (!InitEGL(app->window)) {
-        LOGE("EGL Init Failed!");
-        return;
-    }
-
-    LOGI("Initializing ImGui...");
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.IniFilename = nullptr;
-    io.LogFilename = nullptr;
-
-    io.Fonts->AddFontDefault();
-    io.Fonts->Build();
-
-    LOGI("Initializing ImGui backends...");
-    ImGui_ImplAndroid_Init(app->window);
-    ImGui_ImplOpenGL3_Init("#version 300 es");
-
-    LOGI("Entering main loop...");
-    bool running = true;
-    while (running) {
-        int events;
-        struct android_poll_source* source;
-        while (ALooper_pollAll(0, nullptr, &events, (void**)&source) >= 0) {
-            if (source) source->process(app, source);
-        }
-
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplAndroid_NewFrame();
-        ImGui::NewFrame();
-
-        {
-            ImGui::Begin("✨ 纯净 ELF 菜单", nullptr,
-                        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize);
-            ImGui::Text("这是从零构建的官方 ImGui ELF");
-            ImGui::Separator();
-
-            static bool bGodMode = false;
-            static bool bAimbot  = false;
-
-            if (ImGui::Button("💀 秒杀", ImVec2(120, 40))) {
-                LOGI("秒杀按钮触发");
-            }
-            ImGui::SameLine();
-            ImGui::Checkbox("🛡 无敌", &bGodMode);
-
-            ImGui::Checkbox("🎯 自瞄", &bAimbot);
-            if (bAimbot) {
-                ImGui::Indent(20);
-                static float fSmooth = 1.2f;
-                ImGui::SliderFloat("平滑度", &fSmooth, 0.5f, 3.0f, "%.1f");
-                ImGui::Unindent(20);
-            }
-
-            float fps = ImGui::GetIO().Framerate;
-            ImGui::Text("FPS: %.1f", fps);
-            ImGui::ProgressBar(fps / 120.0f, ImVec2(200, 0), "");
-
-            ImGui::End();
-        }
-
-        ImGui::Render();
-        glViewport(0, 0, ANativeWindow_getWidth(app->window), ANativeWindow_getHeight(app->window));
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-        eglSwapBuffers(g_EglDisplay, g_EglSurface);
-    }
-
-    LOGI("Shutting down...");
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplAndroid_Shutdown();
-    ImGui::DestroyContext();
-
-    eglDestroyContext(g_EglDisplay, g_EglContext);
-    eglDestroySurface(g_EglDisplay, g_EglSurface);
-    eglTerminate(g_EglDisplay);
-    LOGI("Done");
 }
