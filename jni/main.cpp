@@ -26,15 +26,14 @@ static bool InitEGL(ANativeWindow* window) {
         return false;
     }
 
-    // ===== 不用 ANativeWindow_getWidth，直接用默认值 =====
+    // 用默认尺寸
     int width = 1080;
     int height = 1920;
     LOGI("InitEGL: using default window size = %dx%d", width, height);
 
-    // ===== 设置窗口缓冲区格式 =====
-    LOGI("InitEGL: setting window buffers geometry");
-    int result = ANativeWindow_setBuffersGeometry(window, width, height, WINDOW_FORMAT_RGBA_8888);
-    LOGI("InitEGL: setBuffersGeometry returned %d", result);
+    // ===== 跳过 setBuffersGeometry，直接创建 surface =====
+    // LOGI("InitEGL: setting window buffers geometry");
+    // ANativeWindow_setBuffersGeometry(window, width, height, WINDOW_FORMAT_RGBA_8888);
 
     LOGI("InitEGL: calling eglGetDisplay");
     g_EglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
