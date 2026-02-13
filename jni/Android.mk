@@ -24,7 +24,7 @@ LOCAL_SRC_FILES += $(NDK_ROOT)/sources/android/native_app_glue/android_native_ap
 
 LOCAL_LDLIBS := -landroid -lEGL -lGLESv3 -llog
 
-# 告诉链接器使用 android_main 而不是 main
-LOCAL_LDFLAGS += -u ANativeActivity_onCreate
+# ⚠️ 强制指定入口点为 android_main
+LOCAL_LDFLAGS += -Wl,-e,android_main
 
 include $(BUILD_EXECUTABLE)
