@@ -5,7 +5,6 @@
 #include <android/input.h>
 #include <unistd.h>
 
-#include "ANativeWindowCreator.h"
 #include "imgui.h"
 #include "backends/imgui_impl_android.h"
 #include "backends/imgui_impl_opengl3.h"
@@ -21,25 +20,21 @@ static ANativeWindow* g_NativeWindow = nullptr;
 
 static bool InitEGL() {
     LOGI("InitEGL: starting...");
-    LOGI("InitEGL: getting display");
+
     g_EglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (g_EglDisplay == EGL_NO_DISPLAY) {
         LOGE("eglGetDisplay failed");
         return false;
     }
-    LOGI("InitEGL: got display %p", g_EglDisplay);
 
-    LOGI("InitEGL: initializing");
     if (!eglInitialize(g_EglDisplay, nullptr, nullptr)) {
         LOGE("eglInitialize failed");
         return false;
     }
-    LOGI("InitEGL: initialized");
 
-    LOGI("InitEGL: choosing config");
     const EGLint attribs[] = {
+        EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-        EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
         EGL_BLUE_SIZE, 8,
         EGL_GREEN_SIZE, 8,
         EGL_RED_SIZE, 8,
@@ -54,30 +49,31 @@ static bool InitEGL() {
         LOGE("eglChooseConfig failed");
         return false;
     }
-    LOGI("InitEGL: config chosen");
 
-    LOGI("InitEGL: creating window surface with native window %p", g_NativeWindow);
-    g_EglSurface = eglCreateWindowSurface(g_EglDisplay, config, g_NativeWindow, nullptr);
+    // 用 pbuffer 代替窗口表面
+    const EGLint pbufferAttribs[] = {
+        EGL_WIDTH, 1080,
+        EGL_HEIGHT, 1920,
+        EGL_NONE
+    };
+    g_EglSurface = eglCreatePbufferSurface(g_EglDisplay, config, pbufferAttribs);
     if (g_EglSurface == EGL_NO_SURFACE) {
-        LOGE("eglCreateWindowSurface failed");
+        LOGE("eglCreatePbufferSurface failed");
         return false;
     }
-    LOGI("InitEGL: surface created %p", g_EglSurface);
 
-    LOGI("InitEGL: creating context");
     const EGLint contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
     g_EglContext = eglCreateContext(g_EglDisplay, config, EGL_NO_CONTEXT, contextAttribs);
     if (g_EglContext == EGL_NO_CONTEXT) {
         LOGE("eglCreateContext failed");
         return false;
     }
-    LOGI("InitEGL: context created %p", g_EglContext);
 
-    LOGI("InitEGL: making current");
     if (!eglMakeCurrent(g_EglDisplay, g_EglSurface, g_EglSurface, g_EglContext)) {
         LOGE("eglMakeCurrent failed");
         return false;
     }
+
     LOGI("InitEGL: success!");
     return true;
 }
@@ -91,31 +87,23 @@ static int32_t handle_input_event(struct android_app* app, AInputEvent* event) {
 
 void android_main(struct android_app* app) {
     LOGI("android_main started");
-
     LOGI("Setting input event callback");
     app->onInputEvent = handle_input_event;
 
-    LOGI("Creating native window");
-    g_NativeWindow = android::ANativeWindowCreator::Create(
-        "ImGuiWindow",
-        1080,
-        1920,
-        false
-    );
-
-    if (!g_NativeWindow) {
-        LOGE("Failed to create native window");
-        return;
+    LOGI("Waiting for window...");
+    while (app->window == nullptr) {
+        int events;
+        struct android_poll_source* source;
+        ALooper_pollAll(-1, nullptr, &events, (void**)&source);
+        if (source) source->process(app, source);
     }
-    LOGI("Native window created: %p", g_NativeWindow);
+    LOGI("Window obtained: %p", app->window);
 
-    LOGI("Initializing EGL");
+    LOGI("Initializing EGL with pbuffer");
     if (!InitEGL()) {
         LOGE("EGL initialization failed");
-        android::ANativeWindowCreator::Destroy(g_NativeWindow);
         return;
     }
-    LOGI("EGL initialized");
 
     LOGI("Initializing ImGui...");
     IMGUI_CHECKVERSION();
@@ -123,18 +111,12 @@ void android_main(struct android_app* app) {
     ImGuiIO& io = ImGui::GetIO();
     io.IniFilename = nullptr;
     io.LogFilename = nullptr;
-    LOGI("ImGui context created");
 
-    LOGI("Adding default font");
     io.Fonts->AddFontDefault();
-    LOGI("Font added");
 
     LOGI("Initializing ImGui backends...");
-    LOGI("  - Android backend");
-    ImGui_ImplAndroid_Init(g_NativeWindow);
-    LOGI("  - OpenGL3 backend");
+    ImGui_ImplAndroid_Init(app->window);
     ImGui_ImplOpenGL3_Init("#version 300 es");
-    LOGI("Backends initialized");
 
     LOGI("Entering main loop...");
     bool running = true;
@@ -177,7 +159,5 @@ void android_main(struct android_app* app) {
     eglDestroyContext(g_EglDisplay, g_EglContext);
     eglDestroySurface(g_EglDisplay, g_EglSurface);
     eglTerminate(g_EglDisplay);
-
-    android::ANativeWindowCreator::Destroy(g_NativeWindow);
     LOGI("Done");
 }
