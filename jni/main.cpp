@@ -28,12 +28,10 @@ static bool InitEGL(ANativeWindow* window) {
         return false;
     }
 
-    // 使用默认尺寸
     int w = 1080;
     int h = 1920;
     LOGI("InitEGL: using default window size = %dx%d", w, h);
 
-    // 获取显示
     LOGI("InitEGL: calling eglGetDisplay");
     g_EglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     LOGI("InitEGL: eglGetDisplay returned %p", g_EglDisplay);
@@ -43,7 +41,6 @@ static bool InitEGL(ANativeWindow* window) {
         return false;
     }
 
-    // 初始化显示
     LOGI("InitEGL: calling eglInitialize");
     if (!eglInitialize(g_EglDisplay, nullptr, nullptr)) {
         LOGE("InitEGL: eglInitialize failed");
@@ -51,7 +48,6 @@ static bool InitEGL(ANativeWindow* window) {
     }
     LOGI("InitEGL: eglInitialize succeeded");
 
-    // 配置属性
     const EGLint configAttribs[] = {
         EGL_SURFACE_TYPE, EGL_WINDOW_BIT | EGL_PBUFFER_BIT,
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
@@ -73,8 +69,7 @@ static bool InitEGL(ANativeWindow* window) {
     }
     LOGI("InitEGL: eglChooseConfig succeeded");
 
-    // 使用 pbuffer 表面替代窗口表面（避免崩溃）
-    LOGI("InitEGL: using pbuffer surface instead of window surface");
+    LOGI("InitEGL: using pbuffer surface");
     const EGLint pbufferAttribs[] = {
         EGL_WIDTH, w,
         EGL_HEIGHT, h,
@@ -91,7 +86,6 @@ static bool InitEGL(ANativeWindow* window) {
     }
     LOGI("InitEGL: pbuffer surface created successfully");
 
-    // 创建上下文
     const EGLint contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
     LOGI("InitEGL: calling eglCreateContext");
     g_EglContext = eglCreateContext(g_EglDisplay, config, EGL_NO_CONTEXT, contextAttribs);
@@ -102,7 +96,6 @@ static bool InitEGL(ANativeWindow* window) {
         return false;
     }
 
-    // 激活上下文
     LOGI("InitEGL: calling eglMakeCurrent");
     if (!eglMakeCurrent(g_EglDisplay, g_EglSurface, g_EglSurface, g_EglContext)) {
         LOGE("InitEGL: eglMakeCurrent failed");
@@ -127,18 +120,91 @@ void android_main(struct android_app* app) {
     
     LOGI("DEBUG: about to call InitEGL");
     
-    bool result = InitEGL(app->window);
-    
-    LOGI("DEBUG: InitEGL returned %d", result);
-    
-    if (!result) {
+    if (!InitEGL(app->window)) {
         LOGE("DEBUG: EGL Init Failed!");
         return;
     }
     
-    LOGI("DEBUG: EGL Init succeeded, continuing...");
+    LOGI("DEBUG: EGL Init succeeded, initializing ImGui...");
     
-    // 测试完成，先退出
-    LOGI("DEBUG: test complete, exiting");
-    return;
+    // 初始化 ImGui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.LogFilename = nullptr;
+
+    io.Fonts->AddFontDefault();
+    io.Fonts->Build();
+
+    LOGI("DEBUG: Initializing ImGui backends...");
+    ImGui_ImplAndroid_Init(app->window);
+    ImGui_ImplOpenGL3_Init("#version 300 es");
+
+    LOGI("DEBUG: Entering main loop...");
+    
+    bool running = true;
+    while (running) {
+        // 处理事件
+        int events;
+        struct android_poll_source* source;
+        while (ALooper_pollAll(0, nullptr, &events, (void**)&source) >= 0) {
+            if (source) source->process(app, source);
+        }
+
+        // 开始新帧
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplAndroid_NewFrame();
+        ImGui::NewFrame();
+
+        // 绘制菜单
+        {
+            ImGui::Begin("✨ 纯净 ELF 菜单", nullptr,
+                        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize);
+            ImGui::Text("终于成功了！");
+            ImGui::Separator();
+
+            static bool bGodMode = false;
+            static bool bAimbot  = false;
+
+            if (ImGui::Button("💀 秒杀", ImVec2(120, 40))) {
+                LOGI("秒杀按钮触发");
+            }
+            ImGui::SameLine();
+            ImGui::Checkbox("🛡 无敌", &bGodMode);
+
+            ImGui::Checkbox("🎯 自瞄", &bAimbot);
+            if (bAimbot) {
+                ImGui::Indent(20);
+                static float fSmooth = 1.2f;
+                ImGui::SliderFloat("平滑度", &fSmooth, 0.5f, 3.0f, "%.1f");
+                ImGui::Unindent(20);
+            }
+
+            float fps = ImGui::GetIO().Framerate;
+            ImGui::Text("FPS: %.1f", fps);
+            ImGui::ProgressBar(fps / 120.0f, ImVec2(200, 0), "");
+
+            ImGui::End();
+        }
+
+        // 渲染
+        ImGui::Render();
+        glViewport(0, 0, 1080, 1920);
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        eglSwapBuffers(g_EglDisplay, g_EglSurface);
+    }
+
+    LOGI("DEBUG: Shutting down...");
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplAndroid_Shutdown();
+    ImGui::DestroyContext();
+
+    eglDestroyContext(g_EglDisplay, g_EglContext);
+    eglDestroySurface(g_EglDisplay, g_EglSurface);
+    eglTerminate(g_EglDisplay);
+    LOGI("DEBUG: Done");
 }
