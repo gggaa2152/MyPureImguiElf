@@ -23,7 +23,7 @@
  * SOFTWARE.
  */
 
-#ifndef A_NATIVE_WINDOW_CREATOR_H // !A_NATIVE_WINDOW_CREATOR_H
+#ifndef A_NATIVE_WINDOW_CREATOR_H
 #define A_NATIVE_WINDOW_CREATOR_H
 
 #include <android/native_window.h>
@@ -60,36 +60,36 @@
 #define SURFACE_LOG_LEVEL         SURFACE_LOG_LEVEL_DEBUG  // Default DEBUG level
 #endif
 
-// Unified log macro definitions
+// Fixed log macro definitions (removed __VA_OPT__ for NDK compatibility)
 #if SURFACE_LOG_ENABLE
     #define SURFACE_LOG_ERROR(fmt, ...) \
         do { \
             if (SURFACE_LOG_LEVEL >= SURFACE_LOG_LEVEL_ERROR) \
-                __android_log_print(ANDROID_LOG_ERROR, SURFACE_LOG_TAG, "[-] " fmt __VA_OPT__(, ) __VA_ARGS__); \
+                __android_log_print(ANDROID_LOG_ERROR, SURFACE_LOG_TAG, "[-] " fmt, ##__VA_ARGS__); \
         } while(0)
     
     #define SURFACE_LOG_WARN(fmt, ...) \
         do { \
             if (SURFACE_LOG_LEVEL >= SURFACE_LOG_LEVEL_WARN) \
-                __android_log_print(ANDROID_LOG_WARN, SURFACE_LOG_TAG, "[!] " fmt __VA_OPT__(, ) __VA_ARGS__); \
+                __android_log_print(ANDROID_LOG_WARN, SURFACE_LOG_TAG, "[!] " fmt, ##__VA_ARGS__); \
         } while(0)
     
     #define SURFACE_LOG_INFO(fmt, ...) \
         do { \
             if (SURFACE_LOG_LEVEL >= SURFACE_LOG_LEVEL_INFO) \
-                __android_log_print(ANDROID_LOG_INFO, SURFACE_LOG_TAG, "[+] " fmt __VA_OPT__(, ) __VA_ARGS__); \
+                __android_log_print(ANDROID_LOG_INFO, SURFACE_LOG_TAG, "[+] " fmt, ##__VA_ARGS__); \
         } while(0)
     
     #define SURFACE_LOG_DEBUG(fmt, ...) \
         do { \
             if (SURFACE_LOG_LEVEL >= SURFACE_LOG_LEVEL_DEBUG) \
-                __android_log_print(ANDROID_LOG_DEBUG, SURFACE_LOG_TAG, "[*] " fmt __VA_OPT__(, ) __VA_ARGS__); \
+                __android_log_print(ANDROID_LOG_DEBUG, SURFACE_LOG_TAG, "[*] " fmt, ##__VA_ARGS__); \
         } while(0)
     
     #define SURFACE_LOG_TRACE(fmt, ...) \
         do { \
             if (SURFACE_LOG_LEVEL >= SURFACE_LOG_LEVEL_DEBUG) \
-                __android_log_print(ANDROID_LOG_DEBUG, SURFACE_LOG_TAG, "[=] " fmt __VA_OPT__(, ) __VA_ARGS__); \
+                __android_log_print(ANDROID_LOG_DEBUG, SURFACE_LOG_TAG, "[=] " fmt, ##__VA_ARGS__); \
         } while(0)
 #else
     #define SURFACE_LOG_ERROR(fmt, ...)   ((void)0)
