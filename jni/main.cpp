@@ -13,6 +13,7 @@
 #define LOG_TAG "PureElf"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 
 static EGLDisplay  g_EglDisplay     = EGL_NO_DISPLAY;
 static EGLSurface  g_EglSurface     = EGL_NO_SURFACE;
@@ -27,9 +28,20 @@ static bool InitEGL(ANativeWindow* window) {
         return false;
     }
 
-    // 直接获取窗口尺寸（跳过设置格式）
+    // 验证窗口有效性
+    __android_log_print(ANDROID_LOG_INFO, "PureElf", "InitEGL: testing window validity");
+    
+    // 尝试获取窗口宽度
     int w = ANativeWindow_getWidth(window);
     int h = ANativeWindow_getHeight(window);
+
+    if (w <= 0 || h <= 0) {
+        LOGW("InitEGL: window size invalid (%dx%d), trying fallback", w, h);
+        // 使用默认值
+        w = 1080;
+        h = 1920;
+    }
+
     __android_log_print(ANDROID_LOG_INFO, "PureElf", "InitEGL: window size = %dx%d", w, h);
 
     // 获取显示
